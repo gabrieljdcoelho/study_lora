@@ -15,3 +15,6 @@ Small project to fine tune a VLM on invoices to know better Lora.
 ## Development Logs
 
 - First lets use unsloth, high level of abstraction (not funny)
+
+### 29082025
+- Donwload qwen 2.5-vl-4b quntized
