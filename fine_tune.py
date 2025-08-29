@@ -1,18 +1,24 @@
 import torch
+import os
 from unsloth import FastVisionModel
 from datasets import load_dataset
 
+MODEL_PATH = "qwen2.7-vl-7b-instruct-4b"
+TOKENIZER_PATH = "qwen2.7-vl-7b-instruct-4b_tokenizer"
+
 def load_data():
     load_dataset("mychen76/invoices-and-receipts_ocr_v1")
-    print(load_dataset["train"])
 
+if os.path.exists(MODEL_PATH) and os.path.exists(TOKENIZER_PATH):
 
+    model, tokenizer = FastVisionModel.from_pretrained(MODEL_PATH)
+else:
+    model, tokenizer = FastVisionModel.from_pretrained(
+        "unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit",
+        load_in_4bit = True,
+        use_gradient_checkpointing = "unsloth"
+    )
 
-model, tokenizer = FastVisionModel.from_pretrained(
-    "unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit",
-    load_in_4bit = True,
-    use_gradient_checkpointing = "unsloth"
-)
 
 model = FastVisionModel.get_peft_model(
     model,
