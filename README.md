@@ -17,4 +17,9 @@ Small project to fine tune a VLM on invoices to know better Lora.
 - First lets use unsloth, high level of abstraction (not funny)
 
 ### 29082025
-- Donwload qwen 2.5-vl-4b quntized
+- Download qwen 2.5-vl-4b quantized
+
+### 30082025
+- Successfully performed inference with a base Qwen model to extract invoice numbers
+- No fine-tuning performed
+- Improved logging maturity
