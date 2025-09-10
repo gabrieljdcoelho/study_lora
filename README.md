@@ -23,3 +23,8 @@ Small project to fine tune a VLM on invoices to know better Lora.
 - Successfully performed inference with a base Qwen model to extract invoice numbers
 - No fine-tuning performed
 - Improved logging maturity
+
+### 10092025
+- Pipeline to fine tune is working
+- Trained for 10 data points (just to test) and 1 epoch
+- Next steps include run a benchmark before and after this fine tunning
