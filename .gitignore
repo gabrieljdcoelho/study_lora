@@ -1,2 +1,4 @@
 unsloth_compiled_cache
 qwen2.7-vl-7b-instruct-4b
+qwen2.5-vl-7b-invoice/adapter_model.safetensors
+outputs

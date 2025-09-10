@@ -1,5 +1,12 @@
 from unsloth import FastVisionModel
+from unsloth import is_bf16_supported
+from unsloth.trainer import UnslothVisionDataCollator
+from trl import SFTTrainer, SFTConfig
+from transformers import TrainingArguments
+from unsloth import is_bfloat16_supported
+
 import os
+from tqdm import tqdm
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 import torch
@@ -9,8 +16,6 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 import logging
 from datasets import load_dataset
 from transformers import TextStreamer
-
-
 
 MODEL_PATH = "local_qwen2.5-vl-7b-instruct-4b"
 
@@ -62,7 +67,6 @@ def load_model_tokenizer(finetune_flag):
 
 @torch.inference_mode()
 def do_inference(model, tokenizer, image):
-    # Qwen-VL handles various sizes; 896–1024 is a good compromise
     try:
         from PIL import Image
         if isinstance(image, Image.Image):
@@ -106,11 +110,73 @@ def do_inference(model, tokenizer, image):
             temperature=None,
         )
 
+
+import json
+
+instruction = f"""You are a specialized in invoice and your role is to extract information from any invoice that is provided to you in the following valid json format. if the corresponding value is not present, leave the key with empty string.
+
+Fill the keys only when the information is available.
+"""
+def format_prompt(image, parsed_data):
+    conversation = [
+        {"role": "user", "content": [
+            {"type": "image", "image": image},
+            {"type": "text", "text": instruction}
+        ]},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": parsed_data}
+        ]},
+    ]
+
+    return {"messages": conversation}
+
+def train_model(model, tokenizer, dataset):
+    FastVisionModel.for_training(model)
+    
+    trainer = SFTTrainer(
+        model = model,
+        tokenizer = tokenizer,
+        data_collator = UnslothVisionDataCollator(model, tokenizer),
+        train_dataset = dataset,
+        max_seq_length = 2048,
+        args = SFTConfig(
+            per_device_train_batch_size = 1,
+            gradient_accumulation_steps = 1,
+            warmup_steps = 5,
+            num_train_epochs = 1,
+            learning_rate = 2e-4,
+            fp16 = not is_bf16_supported(),
+            bf16 = is_bf16_supported(),
+            logging_steps = 1,
+            optim = "adamw_8bit",
+            weight_decay = 0.01,
+            lr_scheduler_type = "linear",
+            seed = 3407,
+            output_dir = "outputs",    
+            run_name = "qwen-2.5-vl-7b-cord",
+            remove_unused_columns = False,
+            dataset_text_field = "",
+            dataset_kwargs = {"skip_prepare_dataset": True},
+            dataset_num_proc = 4
+        ),
+    )
+    trainer_stats = trainer.train()
+    logging.info(f"trainer_stats: {trainer_stats}")
+    model.save_pretrained("qwen2.5-vl-7b-invoice")
 def main():
     dataset = load_data()
-    model, tokenizer = load_model_tokenizer(finetune_flag=False)
-    sample_img = dataset["train"][2]["image"]
-    do_inference(model, tokenizer, sample_img)
+    model, tokenizer = load_model_tokenizer(finetune_flag=True)
+    converted_dataset = []
+    subset = dataset["train"].select(range(10))
+    for sample in tqdm(subset):
+        image = sample["image"].resize((800, 600))
+        parsed_data = json.dumps(json.loads(sample["parsed_data"])["json"])
+        converted_dataset.append(format_prompt(image, parsed_data))
+    train_model(model, tokenizer, converted_dataset)
+
+        #do_inference(model, tokenizer, image)
+    #sample_img = dataset["train"][2]["image"]
+    #do_inference(model, tokenizer, sample_img)
 
 if __name__ == "__main__":
     main()
